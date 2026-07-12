@@ -39,3 +39,15 @@ variable "nat_instance_type" {
   type        = string
   default     = "t3.nano"
 }
+
+variable "public_subnet_az" {
+  description = "The Availability Zone for the public subnet (can be a standard AZ or a Local Zone)"
+  type        = string
+  default     = "us-east-1a"
+}
+
+variable "network_border_group" {
+  description = "The Network Border Group for the Elastic IP (must be specified if deploying to a Local Zone)"
+  type        = string
+  default     = null
+}

@@ -1,7 +1,8 @@
 # Elastic IP for Managed NAT Gateway (if use_nat_gateway is true)
 resource "aws_eip" "nat_gw_eip" {
-  count  = var.use_nat_gateway ? 1 : 0
-  domain = "vpc"
+  count                = var.use_nat_gateway ? 1 : 0
+  domain               = "vpc"
+  network_border_group = var.network_border_group
 
   tags = {
     Name = "aws-vpn-nat-gw-eip"
@@ -83,8 +84,9 @@ resource "aws_security_group" "nat_sg" {
 
 # Elastic IP for NAT Instance
 resource "aws_eip" "nat_instance_eip" {
-  count  = var.use_nat_gateway ? 0 : 1
-  domain = "vpc"
+  count                = var.use_nat_gateway ? 0 : 1
+  domain               = "vpc"
+  network_border_group = var.network_border_group
 
   tags = {
     Name = "aws-vpn-nat-instance-eip"

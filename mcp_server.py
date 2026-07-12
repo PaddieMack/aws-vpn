@@ -42,6 +42,8 @@ def configure_vpn(
     client_cidr_block: str = "172.16.0.0/22",
     use_nat_gateway: bool = False,
     nat_instance_type: str = "t3.nano",
+    public_subnet_az: str = "us-east-1a",
+    network_border_group: str = "",
     instance_name: str = "lightsail-vpn"
 ) -> str:
     """Configure the parameters for the selected VPN type.
@@ -57,6 +59,8 @@ def configure_vpn(
     - client_cidr_block: IP range block for VPN clients (e.g. 172.16.0.0/22)
     - use_nat_gateway: If true, deploy a Managed NAT Gateway. If false, deploy a cost-effective EC2 NAT Instance.
     - nat_instance_type: EC2 Instance type for the NAT Instance (if use_nat_gateway is false)
+    - public_subnet_az: Availability Zone for the public subnet (e.g. us-east-1a, or us-east-1-dfw-2a for Dallas Local Zone)
+    - network_border_group: Network Border Group for Elastic IP (e.g. us-east-1-dfw-2 for Dallas Local Zone, leave empty for default)
     
     Lightsail Specific Parameters:
     - instance_name: The name of the Lightsail instance (e.g. lightsail-vpn)
@@ -66,6 +70,7 @@ def configure_vpn(
 
     try:
         if vpn_type == "ec2":
+            border_group_val = "null" if (not network_border_group or network_border_group.lower() in ["null", "none"]) else f'"{network_border_group}"'
             tfvars_content = f"""aws_region          = "{aws_region}"
 vpc_cidr            = "{vpc_cidr}"
 public_subnet_cidr  = "{public_subnet_cidr}"
@@ -73,6 +78,8 @@ private_subnet_cidr = "{private_subnet_cidr}"
 client_cidr_block   = "{client_cidr_block}"
 use_nat_gateway     = {str(use_nat_gateway).lower()}
 nat_instance_type   = "{nat_instance_type}"
+public_subnet_az    = "{public_subnet_az}"
+network_border_group = {border_group_val}
 """
             with open("ec2/terraform.tfvars", "w") as f:
                 f.write(tfvars_content)

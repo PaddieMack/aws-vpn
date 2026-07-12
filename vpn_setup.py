@@ -84,9 +84,29 @@ def setup_ec2_vpn():
     use_nat_gw_str = get_input("Use Managed NAT Gateway (otherwise cost-saving EC2 instance)? (yes/no)", "no")
     use_nat_gateway = use_nat_gw_str.lower() in ["y", "yes", "true"]
     
+    sub_region = "none"
+    if aws_region == "us-east-1":
+        sub_region = get_input("Deploy public subnet egress to a Texas Local Zone? (options: none, dallas, houston)", "none").strip().lower()
+
+    public_subnet_az = f"{aws_region}a"
+    network_border_group = "null"
     nat_instance_type = "t3.nano"
-    if not use_nat_gateway:
-        nat_instance_type = get_input("EC2 NAT Instance type", "t3.nano")
+
+    if sub_region == "dallas":
+        public_subnet_az = "us-east-1-dfw-2a"
+        network_border_group = '"us-east-1-dfw-2"'
+        if not use_nat_gateway:
+            print("💡 Note: t3.nano is not supported in the Dallas Local Zone. Defaulting to c6i.large.")
+            nat_instance_type = get_input("EC2 NAT Instance type", "c6i.large")
+    elif sub_region == "houston":
+        public_subnet_az = "us-east-1-iah-2a"
+        network_border_group = '"us-east-1-iah-2"'
+        if not use_nat_gateway:
+            print("💡 Note: t3.nano is not supported in the Houston Local Zone. Defaulting to c6i.large.")
+            nat_instance_type = get_input("EC2 NAT Instance type", "c6i.large")
+    else:
+        if not use_nat_gateway:
+            nat_instance_type = get_input("EC2 NAT Instance type", "t3.nano")
 
     print("\nWriting configuration to ec2/terraform.tfvars...")
     tfvars_content = f"""aws_region          = "{aws_region}"
@@ -96,6 +116,8 @@ private_subnet_cidr = "{private_subnet_cidr}"
 client_cidr_block   = "{client_cidr_block}"
 use_nat_gateway     = {str(use_nat_gateway).lower()}
 nat_instance_type   = "{nat_instance_type}"
+public_subnet_az    = "{public_subnet_az}"
+network_border_group = {network_border_group}
 """
     with open("ec2/terraform.tfvars", "w") as f:
         f.write(tfvars_content)
