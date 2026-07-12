@@ -26,7 +26,7 @@ def get_vpn_status(vpn_type: str = "ec2") -> str:
     if not shutil.which("terraform"):
         return "Error: 'terraform' CLI is not installed or not in PATH."
     
-    cwd = None if vpn_type == "ec2" else "lightsail"
+    cwd = "ec2" if vpn_type == "ec2" else "lightsail"
     success, stdout, stderr = run_command(["terraform", "output", "-json"], cwd=cwd)
     if not success:
         return f"VPN type '{vpn_type}' is not deployed yet or state is empty."
@@ -74,9 +74,9 @@ client_cidr_block   = "{client_cidr_block}"
 use_nat_gateway     = {str(use_nat_gateway).lower()}
 nat_instance_type   = "{nat_instance_type}"
 """
-            with open("terraform.tfvars", "w") as f:
+            with open("ec2/terraform.tfvars", "w") as f:
                 f.write(tfvars_content)
-            return "EC2 VPN Configuration written to terraform.tfvars successfully."
+            return "EC2 VPN Configuration written to ec2/terraform.tfvars successfully."
         else:
             lightsail_dir = "lightsail"
             os.makedirs(lightsail_dir, exist_ok=True)
@@ -102,33 +102,33 @@ def deploy_vpn(vpn_type: str = "ec2") -> str:
     if vpn_type == "ec2":
         # 1. Check/generate certificates
         required_files = ["ca.crt", "ca.key", "server.crt", "server.key", "client1.domain.tld.crt", "client1.domain.tld.key"]
-        certs_dir = "certs"
+        certs_dir = "ec2/certs"
         certs_exist = os.path.exists(certs_dir) and all(os.path.exists(os.path.join(certs_dir, f)) for f in required_files)
         
         if not certs_exist:
-            if os.path.exists("generate_certs.sh"):
-                os.chmod("generate_certs.sh", 0o755)
+            if os.path.exists("ec2/generate_certs.sh"):
+                os.chmod("ec2/generate_certs.sh", 0o755)
                 try:
-                    subprocess.run("./generate_certs.sh", input="y\n", text=True, check=True)
+                    subprocess.run("./generate_certs.sh", cwd="ec2", input="y\n", text=True, check=True)
                 except subprocess.CalledProcessError as e:
                     return f"Error running generate_certs.sh: {e}"
             else:
                 return "Error: generate_certs.sh not found and certificates are missing."
                 
         # 2. Run terraform init
-        success, stdout, stderr = run_command(["terraform", "init"])
+        success, stdout, stderr = run_command(["terraform", "init"], cwd="ec2")
         if not success:
             return f"Terraform init failed:\n{stderr}"
             
         # 3. Run terraform apply
-        success, stdout, stderr = run_command(["terraform", "apply", "-auto-approve"])
+        success, stdout, stderr = run_command(["terraform", "apply", "-auto-approve"], cwd="ec2")
         if not success:
             return f"Terraform apply failed:\n{stderr}"
             
         # 4. Generate the OVPN profile
-        if os.path.exists("configure_ovpn.sh"):
-            os.chmod("configure_ovpn.sh", 0o755)
-            ovpn_success, ovpn_stdout, ovpn_stderr = run_command(["./configure_ovpn.sh"])
+        if os.path.exists("ec2/configure_ovpn.sh"):
+            os.chmod("ec2/configure_ovpn.sh", 0o755)
+            ovpn_success, ovpn_stdout, ovpn_stderr = run_command(["./configure_ovpn.sh"], cwd="ec2")
             if not ovpn_success:
                 return f"Terraform applied, but generating client.ovpn failed:\n{ovpn_stderr}"
                 
@@ -210,7 +210,7 @@ def destroy_vpn(vpn_type: str = "ec2") -> str:
     if vpn_type not in ["ec2", "lightsail"]:
         return "Error: vpn_type must be either 'ec2' or 'lightsail'."
 
-    cwd = None if vpn_type == "ec2" else "lightsail"
+    cwd = "ec2" if vpn_type == "ec2" else "lightsail"
     success, stdout, stderr = run_command(["terraform", "destroy", "-auto-approve"], cwd=cwd)
     if not success:
         return f"Terraform destroy failed for '{vpn_type}':\n{stderr}"

@@ -30,22 +30,22 @@ def check_aws_credentials():
     return True
 
 def generate_certificates():
-    certs_dir = "certs"
+    certs_dir = "ec2/certs"
     required_files = ["ca.crt", "ca.key", "server.crt", "server.key", "client1.domain.tld.crt", "client1.domain.tld.key"]
     
     certs_exist = os.path.exists(certs_dir) and all(os.path.exists(os.path.join(certs_dir, f)) for f in required_files)
     
     if certs_exist:
-        print("✅ Certificates already exist in 'certs/'. Skipping generation.")
+        print("✅ Certificates already exist in 'ec2/certs/'. Skipping generation.")
         return True
 
     print("Generating client and server certificates...")
     # Make generate_certs.sh executable and run it
-    if os.path.exists("generate_certs.sh"):
-        os.chmod("generate_certs.sh", 0o755)
+    if os.path.exists("ec2/generate_certs.sh"):
+        os.chmod("ec2/generate_certs.sh", 0o755)
         # Pass 'y' to prompt if directory exists
         try:
-            subprocess.run("./generate_certs.sh", input="y\n", text=True, check=True)
+            subprocess.run("./generate_certs.sh", cwd="ec2", input="y\n", text=True, check=True)
             print("✅ Certificates generated successfully.")
             return True
         except subprocess.CalledProcessError as e:
@@ -65,7 +65,7 @@ def generate_certificates():
         subprocess.run("openssl genrsa -out client1.domain.tld.key 2048", shell=True, check=True)
         subprocess.run("openssl req -new -key client1.domain.tld.key -out client1.domain.tld.csr -subj '/CN=client1.domain.tld'", shell=True, check=True)
         subprocess.run("openssl x509 -req -days 365 -in client1.domain.tld.csr -CA ca.crt -CAkey ca.key -CAserial ca.srl -out client1.domain.tld.crt", shell=True, check=True)
-        os.chdir("..")
+        os.chdir("../..")
         print("✅ Certificates generated successfully.")
         return True
     except Exception as e:
@@ -88,7 +88,7 @@ def setup_ec2_vpn():
     if not use_nat_gateway:
         nat_instance_type = get_input("EC2 NAT Instance type", "t3.nano")
 
-    print("\nWriting configuration to terraform.tfvars...")
+    print("\nWriting configuration to ec2/terraform.tfvars...")
     tfvars_content = f"""aws_region          = "{aws_region}"
 vpc_cidr            = "{vpc_cidr}"
 public_subnet_cidr  = "{public_subnet_cidr}"
@@ -97,7 +97,7 @@ client_cidr_block   = "{client_cidr_block}"
 use_nat_gateway     = {str(use_nat_gateway).lower()}
 nat_instance_type   = "{nat_instance_type}"
 """
-    with open("terraform.tfvars", "w") as f:
+    with open("ec2/terraform.tfvars", "w") as f:
         f.write(tfvars_content)
     print("✅ Configuration written successfully.")
 
@@ -106,19 +106,19 @@ nat_instance_type   = "{nat_instance_type}"
 
     deploy_now = get_input("Do you want to deploy the EC2 VPN to AWS now? (yes/no)", "yes")
     if deploy_now.lower() not in ["y", "yes", "true"]:
-        print("Skipping deployment. You can run 'terraform apply' manually in the root folder when ready.")
+        print("Skipping deployment. You can run 'terraform apply' manually in the ec2/ folder when ready.")
         return
 
-    print("\nInitializing Terraform...")
-    success, stdout, stderr = run_command(["terraform", "init"])
+    print("\nInitializing Terraform for EC2...")
+    success, stdout, stderr = run_command(["terraform", "init"], cwd="ec2")
     if not success:
-        print("❌ Terraform init failed.")
+        print("❌ Terraform init failed in ec2/ folder.")
         print(stderr)
         sys.exit(1)
 
     print("\nApplying Terraform configuration (this may take several minutes)...")
     try:
-        process = subprocess.Popen(["terraform", "apply", "-auto-approve"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        process = subprocess.Popen(["terraform", "apply", "-auto-approve"], cwd="ec2", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for line in process.stdout:
             print(line, end="")
         process.wait()
@@ -131,9 +131,9 @@ nat_instance_type   = "{nat_instance_type}"
         sys.exit(1)
 
     print("\nGenerating OpenVPN client profile...")
-    if os.path.exists("configure_ovpn.sh"):
-        os.chmod("configure_ovpn.sh", 0o755)
-        success, stdout, stderr = run_command(["./configure_ovpn.sh"])
+    if os.path.exists("ec2/configure_ovpn.sh"):
+        os.chmod("ec2/configure_ovpn.sh", 0o755)
+        success, stdout, stderr = run_command(["./configure_ovpn.sh"], cwd="ec2")
         if success:
             print(stdout)
         else:

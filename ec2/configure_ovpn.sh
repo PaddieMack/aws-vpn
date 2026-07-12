@@ -23,7 +23,7 @@ echo "1. Exporting configuration template from AWS..."
 aws ec2 export-client-vpn-client-configuration \
   --client-vpn-endpoint-id "${ENDPOINT_ID}" \
   --output text \
-  --region "${REGION}" > client.ovpn
+  --region "${REGION}" > ../client.ovpn
 
 # Append certificate and key
 echo "2. Appending client certificate and key..."
@@ -35,19 +35,19 @@ echo "2. Appending client certificate and key..."
   echo "<key>"
   cat certs/client1.domain.tld.key
   echo "</key>"
-} >> client.ovpn
+} >> ../client.ovpn
 
 # Modify the remote address to prepend a random subdomain (prevents DNS caching issues)
 echo "3. Prepending random subdomain to bypass DNS caching..."
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' 's/remote \(.*cvpn-endpoint.*\)/remote random.\1/g' client.ovpn
+  sed -i '' 's/remote \(.*cvpn-endpoint.*\)/remote random.\1/g' ../client.ovpn
 else
-  sed -i 's/remote \(.*cvpn-endpoint.*\)/remote random.\1/g' client.ovpn
+  sed -i 's/remote \(.*cvpn-endpoint.*\)/remote random.\1/g' ../client.ovpn
 fi
 
 echo "=========================================================="
-echo " Done! Profile saved as: client.ovpn"
+echo " Done! Profile saved as: ../client.ovpn"
 echo "=========================================================="
-echo " You can now import client.ovpn into your OpenVPN client"
+echo " You can now import client.ovpn from the root folder into your OpenVPN client"
 echo " (like Tunnelblick or OpenVPN Connect) and connect."
 echo "=========================================================="

@@ -5,10 +5,10 @@
 terraform.tfvars
 
 # Secrets & Certificates
-certs/*.key
-certs/*.crt
-certs/*.srl
-!certs/README.md
+**/certs/*.key
+**/certs/*.crt
+**/certs/*.srl
+!**/certs/README.md
 *.pem
 
 # Generated VPN client profiles
