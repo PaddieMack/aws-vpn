@@ -3,13 +3,14 @@ import os
 import sys
 import subprocess
 import shutil
+import time
 
 def check_command(cmd):
     return shutil.which(cmd) is not None
 
-def run_command(cmd, shell=False):
+def run_command(cmd, cwd=None, shell=False):
     try:
-        result = subprocess.run(cmd, shell=shell, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(cmd, cwd=cwd, shell=shell, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         return True, result.stdout, ""
     except subprocess.CalledProcessError as e:
         return False, e.stdout, e.stderr
@@ -42,16 +43,16 @@ def generate_certificates():
     # Make generate_certs.sh executable and run it
     if os.path.exists("generate_certs.sh"):
         os.chmod("generate_certs.sh", 0o755)
-        # We simulate hitting 'y' or running directly
-        success, stdout, stderr = run_command("./generate_certs.sh", shell=True)
-        if success:
+        # Pass 'y' to prompt if directory exists
+        try:
+            subprocess.run("./generate_certs.sh", input="y\n", text=True, check=True)
             print("✅ Certificates generated successfully.")
             return True
-        else:
+        except subprocess.CalledProcessError as e:
             print("❌ Failed to generate certificates via generate_certs.sh.")
-            print(stderr)
+            print(e)
     
-    # Fallback to direct openssl commands if script execution fails
+    # Fallback to direct openssl commands
     print("Running openssl commands directly...")
     try:
         os.makedirs(certs_dir, exist_ok=True)
@@ -71,24 +72,9 @@ def generate_certificates():
         print(f"❌ Failed to generate certificates directly: {e}")
         return False
 
-def main():
-    print("==========================================================")
-    print("        AWS Client VPN Interactive Installer")
-    print("==========================================================")
-
-    if not check_command("terraform"):
-        print("❌ Error: 'terraform' CLI is not installed. Please install it to continue.")
-        sys.exit(1)
-        
-    if not check_command("aws"):
-        print("❌ Error: 'aws' CLI is not installed. Please install it to continue.")
-        sys.exit(1)
-
-    if not check_aws_credentials():
-        sys.exit(1)
-
-    # 1. Ask user for settings
-    print("\nPlease configure your VPN parameters:")
+def setup_ec2_vpn():
+    print("\n--- AWS Client VPN (EC2 NAT NAT-based) Configuration ---")
+    
     aws_region = get_input("AWS Region", "us-east-1")
     vpc_cidr = get_input("VPC CIDR Block", "10.0.0.0/16")
     public_subnet_cidr = get_input("Public Subnet CIDR Block", "10.0.1.0/24")
@@ -102,7 +88,6 @@ def main():
     if not use_nat_gateway:
         nat_instance_type = get_input("EC2 NAT Instance type", "t3.nano")
 
-    # 2. Write to terraform.tfvars
     print("\nWriting configuration to terraform.tfvars...")
     tfvars_content = f"""aws_region          = "{aws_region}"
 vpc_cidr            = "{vpc_cidr}"
@@ -116,27 +101,22 @@ nat_instance_type   = "{nat_instance_type}"
         f.write(tfvars_content)
     print("✅ Configuration written successfully.")
 
-    # 3. Generate certificates
     if not generate_certificates():
         sys.exit(1)
 
-    # 4. Prompt to apply
-    deploy_now = get_input("Do you want to deploy the VPN to AWS now? (yes/no)", "yes")
+    deploy_now = get_input("Do you want to deploy the EC2 VPN to AWS now? (yes/no)", "yes")
     if deploy_now.lower() not in ["y", "yes", "true"]:
-        print("Skipping deployment. You can run 'terraform apply' manually when ready.")
-        sys.exit(0)
+        print("Skipping deployment. You can run 'terraform apply' manually in the root folder when ready.")
+        return
 
-    # 5. Initialize and apply
     print("\nInitializing Terraform...")
     success, stdout, stderr = run_command(["terraform", "init"])
     if not success:
         print("❌ Terraform init failed.")
         print(stderr)
         sys.exit(1)
-    print("✅ Terraform initialized.")
 
     print("\nApplying Terraform configuration (this may take several minutes)...")
-    # Using Popen to stream logs
     try:
         process = subprocess.Popen(["terraform", "apply", "-auto-approve"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for line in process.stdout:
@@ -150,7 +130,6 @@ nat_instance_type   = "{nat_instance_type}"
         print(f"❌ Failed to run terraform apply: {e}")
         sys.exit(1)
 
-    # 6. Run configure_ovpn.sh to export client configuration
     print("\nGenerating OpenVPN client profile...")
     if os.path.exists("configure_ovpn.sh"):
         os.chmod("configure_ovpn.sh", 0o755)
@@ -162,10 +141,121 @@ nat_instance_type   = "{nat_instance_type}"
             print(stderr)
             sys.exit(1)
     else:
-        print("❌ Error: configure_ovpn.sh not found. Cannot generate OpenVPN profile.")
+        print("❌ Error: configure_ovpn.sh not found.")
         sys.exit(1)
 
     print("\n🎉 Setup complete! Import 'client.ovpn' into OpenVPN to connect.")
+
+def setup_lightsail_vpn():
+    print("\n--- AWS Lightsail VPN (Self-hosted OpenVPN) Configuration ---")
+    
+    aws_region = get_input("AWS Region", "us-east-1")
+    instance_name = get_input("Lightsail Instance Name", "lightsail-vpn")
+
+    lightsail_dir = "lightsail"
+    os.makedirs(lightsail_dir, exist_ok=True)
+
+    print("\nWriting configuration to lightsail/terraform.tfvars...")
+    tfvars_content = f"""aws_region    = "{aws_region}"
+instance_name = "{instance_name}"
+"""
+    with open(os.path.join(lightsail_dir, "terraform.tfvars"), "w") as f:
+        f.write(tfvars_content)
+    print("✅ Configuration written successfully.")
+
+    deploy_now = get_input("Do you want to deploy the Lightsail VPN to AWS now? (yes/no)", "yes")
+    if deploy_now.lower() not in ["y", "yes", "true"]:
+        print("Skipping deployment. You can run 'terraform apply' manually in the lightsail/ folder when ready.")
+        return
+
+    print("\nInitializing Terraform for Lightsail...")
+    success, stdout, stderr = run_command(["terraform", "init"], cwd=lightsail_dir)
+    if not success:
+        print("❌ Terraform init failed in lightsail/ folder.")
+        print(stderr)
+        sys.exit(1)
+
+    print("\nApplying Lightsail configuration...")
+    try:
+        process = subprocess.Popen(["terraform", "apply", "-auto-approve"], cwd=lightsail_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in process.stdout:
+            print(line, end="")
+        process.wait()
+        if process.returncode != 0:
+            print("❌ Terraform apply failed.")
+            sys.exit(1)
+        print("✅ Terraform apply completed successfully.")
+    except Exception as e:
+        print(f"❌ Failed to run terraform apply: {e}")
+        sys.exit(1)
+
+    # Fetch public IP output
+    success, stdout, stderr = run_command(["terraform", "output", "-raw", "vpn_public_ip"], cwd=lightsail_dir)
+    if not success:
+        print("❌ Failed to get vpn_public_ip output from Terraform.")
+        sys.exit(1)
+    vpn_ip = stdout.strip()
+
+    print(f"\nVPN Server deployed at static IP: {vpn_ip}")
+    print("Waiting for OpenVPN server setup to complete on the Lightsail instance...")
+    print("This takes 1-2 minutes on first boot as the user-data script installs OpenVPN.")
+
+    # Loop to download client.ovpn via SCP
+    ovpn_downloaded = False
+    scp_cmd = [
+        "scp",
+        "-i", os.path.join(lightsail_dir, "lightsail_vpn.pem"),
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        f"ubuntu@{vpn_ip}:~/client.ovpn",
+        "client_lightsail.ovpn"
+    ]
+
+    for attempt in range(1, 25): # Try for 4 minutes (24 * 10 seconds)
+        print(f"Attempt {attempt}/24: Checking if client.ovpn is ready on the server...")
+        success, stdout, stderr = run_command(scp_cmd)
+        if success:
+            print("✅ Success! OpenVPN profile downloaded to 'client_lightsail.ovpn'.")
+            ovpn_downloaded = True
+            break
+        time.sleep(10)
+
+    if not ovpn_downloaded:
+        print("\n❌ Warning: OpenVPN profile could not be retrieved yet.")
+        print("The server might still be completing its initial setup or SSH is starting up.")
+        print("You can try downloading the configuration file manually later by running:")
+        print(f"  scp -i lightsail/lightsail_vpn.pem ubuntu@{vpn_ip}:~/client.ovpn client_lightsail.ovpn")
+    else:
+        print("\n🎉 Setup complete! Import 'client_lightsail.ovpn' into OpenVPN to connect.")
+
+def main():
+    print("==========================================================")
+    print("           AWS VPN Interactive Dual Installer")
+    print("==========================================================")
+
+    if not check_command("terraform"):
+        print("❌ Error: 'terraform' CLI is not installed. Please install it to continue.")
+        sys.exit(1)
+        
+    if not check_command("aws"):
+        print("❌ Error: 'aws' CLI is not installed. Please install it to continue.")
+        sys.exit(1)
+
+    if not check_aws_credentials():
+        sys.exit(1)
+
+    print("\nPlease choose which VPN option you want to manage:")
+    print("  [1] AWS Client VPN (EC2 NAT-based, highly secure, pay-per-hour)")
+    print("  [2] AWS Lightsail VPN (Self-hosted OpenVPN, flat $5.00/mo rate)")
+    
+    choice = get_input("Enter choice (1 or 2)", "1")
+    if choice == "1":
+        setup_ec2_vpn()
+    elif choice == "2":
+        setup_lightsail_vpn()
+    else:
+        print("❌ Invalid choice. Aborting.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

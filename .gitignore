@@ -9,6 +9,7 @@ certs/*.key
 certs/*.crt
 certs/*.srl
 !certs/README.md
+*.pem
 
 # Generated VPN client profiles
 *.ovpn
