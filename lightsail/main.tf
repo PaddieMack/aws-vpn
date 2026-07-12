@@ -35,11 +35,8 @@ resource "aws_lightsail_instance" "vpn" {
               curl -O https://raw.githubusercontent.com/angristan/openvpn-install/master/openvpn-install.sh
               chmod +x openvpn-install.sh
               
-              # Install OpenVPN non-interactively
-              AUTO_INSTALL=y ./openvpn-install.sh
-              
-              # Create a passwordless client named 'client'
-              ./openvpn-install.sh --non-interactive --create client
+              # Install OpenVPN non-interactively (creates 'client' by default)
+              ./openvpn-install.sh install
               
               # Move the client configuration file to ubuntu's home directory so it's accessible via SSH
               mv /root/client.ovpn /home/ubuntu/client.ovpn
