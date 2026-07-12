@@ -166,7 +166,7 @@ network_border_group = {network_border_group}
         print("❌ Error: configure_ovpn.sh not found.")
         sys.exit(1)
 
-    print("\n🎉 Setup complete! Import 'client.ovpn' into OpenVPN to connect.")
+    print("\n🎉 Setup complete! Import your regional profile (client_ec2_texas.ovpn or client_ec2_virginia.ovpn) from the root directory into OpenVPN to connect.")
 
 def setup_lightsail_vpn():
     print("\n--- AWS Lightsail VPN (Self-hosted OpenVPN) Configuration ---")
@@ -230,14 +230,14 @@ instance_name = "{instance_name}"
         "-o", "StrictHostKeyChecking=no",
         "-o", "UserKnownHostsFile=/dev/null",
         f"ubuntu@{vpn_ip}:~/client.ovpn",
-        "client_lightsail.ovpn"
+        "client_lightsail_virginia.ovpn"
     ]
 
     for attempt in range(1, 25): # Try for 4 minutes (24 * 10 seconds)
         print(f"Attempt {attempt}/24: Checking if client.ovpn is ready on the server...")
         success, stdout, stderr = run_command(scp_cmd)
         if success:
-            print("✅ Success! OpenVPN profile downloaded to 'client_lightsail.ovpn'.")
+            print("✅ Success! OpenVPN profile downloaded to 'client_lightsail_virginia.ovpn'.")
             ovpn_downloaded = True
             break
         time.sleep(10)
@@ -246,9 +246,9 @@ instance_name = "{instance_name}"
         print("\n❌ Warning: OpenVPN profile could not be retrieved yet.")
         print("The server might still be completing its initial setup or SSH is starting up.")
         print("You can try downloading the configuration file manually later by running:")
-        print(f"  scp -i lightsail/lightsail_vpn.pem ubuntu@{vpn_ip}:~/client.ovpn client_lightsail.ovpn")
+        print(f"  scp -i lightsail/lightsail_vpn.pem ubuntu@{vpn_ip}:~/client.ovpn client_lightsail_virginia.ovpn")
     else:
-        print("\n🎉 Setup complete! Import 'client_lightsail.ovpn' into OpenVPN to connect.")
+        print("\n🎉 Setup complete! Import 'client_lightsail_virginia.ovpn' into OpenVPN to connect.")
 
 def main():
     print("==========================================================")

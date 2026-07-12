@@ -10,12 +10,22 @@ cd "${WORKSPACE_DIR}"
 echo "Fetching configuration from Terraform..."
 ENDPOINT_ID=$(terraform output -raw client_vpn_endpoint_id)
 REGION=$(aws configure get region || echo "us-east-1")
+PUBLIC_SUBNET_AZ=$(terraform output -raw public_subnet_az)
+
+# Determine output filename based on public subnet AZ
+if [[ "${PUBLIC_SUBNET_AZ}" == *"dfw"* ]] || [[ "${PUBLIC_SUBNET_AZ}" == *"iah"* ]]; then
+  OUTPUT_FILE="../client_ec2_texas.ovpn"
+else
+  OUTPUT_FILE="../client_ec2_virginia.ovpn"
+fi
 
 echo "=========================================================="
 echo " Generating Client OpenVPN Profile"
 echo "=========================================================="
 echo "VPN Endpoint ID: ${ENDPOINT_ID}"
 echo "Region:          ${REGION}"
+echo "Subnet AZ:       ${PUBLIC_SUBNET_AZ}"
+echo "Output File:     ${OUTPUT_FILE}"
 echo "=========================================================="
 
 # Export the configuration
@@ -23,7 +33,7 @@ echo "1. Exporting configuration template from AWS..."
 aws ec2 export-client-vpn-client-configuration \
   --client-vpn-endpoint-id "${ENDPOINT_ID}" \
   --output text \
-  --region "${REGION}" > ../client.ovpn
+  --region "${REGION}" > "${OUTPUT_FILE}"
 
 # Append certificate and key
 echo "2. Appending client certificate and key..."
@@ -35,19 +45,19 @@ echo "2. Appending client certificate and key..."
   echo "<key>"
   cat certs/client1.domain.tld.key
   echo "</key>"
-} >> ../client.ovpn
+} >> "${OUTPUT_FILE}"
 
 # Modify the remote address to prepend a random subdomain (prevents DNS caching issues)
 echo "3. Prepending random subdomain to bypass DNS caching..."
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' 's/remote \(.*cvpn-endpoint.*\)/remote random.\1/g' ../client.ovpn
+  sed -i '' 's/remote \(.*cvpn-endpoint.*\)/remote random.\1/g' "${OUTPUT_FILE}"
 else
-  sed -i 's/remote \(.*cvpn-endpoint.*\)/remote random.\1/g' ../client.ovpn
+  sed -i 's/remote \(.*cvpn-endpoint.*\)/remote random.\1/g' "${OUTPUT_FILE}"
 fi
 
 echo "=========================================================="
-echo " Done! Profile saved as: ../client.ovpn"
+echo " Done! Profile saved as: ${OUTPUT_FILE}"
 echo "=========================================================="
-echo " You can now import client.ovpn from the root folder into your OpenVPN client"
+echo " You can now import $(basename ${OUTPUT_FILE}) from the root folder into your OpenVPN client"
 echo " (like Tunnelblick or OpenVPN Connect) and connect."
 echo "=========================================================="

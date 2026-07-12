@@ -168,7 +168,7 @@ def deploy_vpn(vpn_type: str = "ec2") -> str:
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
             f"ubuntu@{vpn_ip}:~/client.ovpn",
-            "client_lightsail.ovpn"
+            "client_lightsail_virginia.ovpn"
         ]
 
         ovpn_downloaded = False
@@ -183,23 +183,36 @@ def deploy_vpn(vpn_type: str = "ec2") -> str:
         if not ovpn_downloaded:
             return (f"Lightsail VPN instance deployed at static IP {vpn_ip}, but client configuration retrieval timed out.\n"
                     f"The server is likely still installing OpenVPN. You can try downloading it manually later using:\n"
-                    f"  scp -i lightsail/lightsail_vpn.pem ubuntu@{vpn_ip}:~/client.ovpn client_lightsail.ovpn")
+                    f"  scp -i lightsail/lightsail_vpn.pem ubuntu@{vpn_ip}:~/client.ovpn client_lightsail_virginia.ovpn")
         
-        return f"Lightsail OpenVPN server deployed successfully! Client profile downloaded to 'client_lightsail.ovpn'.\n\nOutputs:\n{stdout}"
+        return f"Lightsail OpenVPN server deployed successfully! Client profile downloaded to 'client_lightsail_virginia.ovpn'.\n\nOutputs:\n{stdout}"
 
 @mcp.tool()
-def get_client_config(vpn_type: str = "ec2") -> str:
+def get_client_config(vpn_type: str = "ec2", location: str = "virginia") -> str:
     """Retrieve the contents of the OpenVPN client profile.
     
     Parameters:
     - vpn_type: Either 'ec2' (AWS Client VPN) or 'lightsail' (AWS Lightsail OpenVPN)
+    - location: 'virginia' or 'texas' (used for EC2 to specify which profile to read)
     """
     if vpn_type not in ["ec2", "lightsail"]:
         return "Error: vpn_type must be either 'ec2' or 'lightsail'."
 
-    filename = "client.ovpn" if vpn_type == "ec2" else "client_lightsail.ovpn"
+    if vpn_type == "lightsail":
+        filename = "client_lightsail_virginia.ovpn"
+    else:
+        if location.lower() == "texas":
+            filename = "client_ec2_texas.ovpn"
+        else:
+            filename = "client_ec2_virginia.ovpn"
+            
     if not os.path.exists(filename):
-        return f"Error: {filename} not found. Have you deployed the '{vpn_type}' VPN?"
+        # Fallback to search any matching profiles
+        fallback_files = [f for f in os.listdir(".") if f.endswith(".ovpn") and vpn_type in f]
+        if fallback_files:
+            filename = fallback_files[0]
+        else:
+            return f"Error: No profile found for '{vpn_type}' in location '{location}'."
     
     try:
         with open(filename, "r") as f:

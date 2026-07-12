@@ -15,5 +15,5 @@ output "ssh_command" {
 
 output "get_config_command" {
   description = "Command to download the OpenVPN configuration file"
-  value       = "scp -i ${path.module}/lightsail_vpn.pem ubuntu@${aws_lightsail_static_ip.vpn_ip.ip_address}:~/client.ovpn ${path.module}/../client_lightsail.ovpn"
+  value       = "scp -i ${path.module}/lightsail_vpn.pem ubuntu@${aws_lightsail_static_ip.vpn_ip.ip_address}:~/client.ovpn ${path.module}/../client_lightsail_virginia.ovpn"
 }

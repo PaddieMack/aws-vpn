@@ -13,6 +13,7 @@ terraform.tfvars
 
 # Generated VPN client profiles
 *.ovpn
+!example_client.ovpn
 
 # Python
 __pycache__/
