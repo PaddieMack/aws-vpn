@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Client VPN Manual Walkthrough</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Mermaid.js for Diagram Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        background: '#161b2d',
+        primaryColor: '#4facfe',
+        primaryTextColor: '#f8fafc',
+        lineColor: '#00f2fe'
+      }
+    });
+  </script>
+
+  <style>
+    /* Premium Styling and Colors */
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #161b2d;
+      --bg-sidebar: #0f1423;
+      --accent-primary: #00f2fe;
+      --accent-secondary: #4facfe;
+      --text-main: #cbd5e1;
+      --text-heading: #f8fafc;
+      --text-muted: #64748b;
+      --code-bg: #1e293b;
+      --border-color: #2e3b56;
+      --warning-color: #f59e0b;
+      --important-color: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-main);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-secondary);
+    }
+
+    /* Sidebar Navigation */
+    aside {
+      width: 280px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      padding: 2rem 1.5rem;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    aside h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent-primary);
+      margin-bottom: 1.5rem;
+    }
+
+    aside ul {
+      list-style: none;
+    }
+
+    aside li {
+      margin-bottom: 0.8rem;
+    }
+
+    aside a {
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 0.95rem;
+      display: block;
+      padding: 0.5rem;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    aside a:hover {
+      background-color: rgba(0, 242, 254, 0.1);
+      color: var(--accent-primary);
+      transform: translateX(5px);
+    }
+
+    /* Main Content Area */
+    main {
+      margin-left: 280px;
+      padding: 3rem 4rem;
+      max-width: 1000px;
+      width: 100%;
+    }
+
+    header {
+      margin-bottom: 3rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 2rem;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--text-heading);
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 1rem;
+    }
+
+    p.lead {
+      font-size: 1.1rem;
+      color: var(--text-main);
+    }
+
+    section {
+      margin-bottom: 4rem;
+      scroll-margin-top: 2rem;
+    }
+
+    h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.8rem;
+      color: var(--text-heading);
+      margin-bottom: 1.5rem;
+      border-left: 4px solid var(--accent-secondary);
+      padding-left: 1rem;
+    }
+
+    h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      color: var(--text-heading);
+      margin: 1.5rem 0 1rem 0;
+    }
+
+    /* Architecture Diagram styling */
+    .diagram-container {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 3rem;
+      display: flex;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Step Cards */
+    .step-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    ol, ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    li {
+      margin-bottom: 0.6rem;
+    }
+
+    strong {
+      color: var(--text-heading);
+    }
+
+    /* Alerts */
+    .alert {
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin: 1.5rem 0;
+      border-left: 4px solid;
+    }
+
+    .alert-warning {
+      background-color: rgba(245, 158, 11, 0.1);
+      border-left-color: var(--warning-color);
+      color: #fcd34d;
+    }
+
+    .alert-important {
+      background-color: rgba(59, 130, 246, 0.1);
+      border-left-color: var(--important-color);
+      color: #93c5fd;
+    }
+
+    .alert h4 {
+      font-family: 'Outfit', sans-serif;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Code Blocks */
+    pre {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.2rem;
+      overflow-x: auto;
+      margin: 1.2rem 0;
+      position: relative;
+    }
+
+    code {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.9rem;
+      color: #38bdf8;
+    }
+
+    pre code {
+      color: var(--text-main);
+    }
+
+    /* Inline code */
+    p code, li code {
+      background-color: var(--code-bg);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      color: #38bdf8;
+    }
+
+    /* Copy Button for code blocks */
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background-color: var(--accent-primary);
+      color: var(--bg-main);
+      border-color: var(--accent-primary);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 5rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 2rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      body {
+        flex-direction: column;
+      }
+      aside {
+        width: 100%;
+        position: relative;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 1.5rem;
+      }
+      main {
+        margin-left: 0;
+        padding: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Sidebar -->
+  <aside>
+    <h2>Sections</h2>
+    <ul>
+      <li><a href="#overview">Architecture Overview</a></li>
+      <li><a href="#step1">Step 1: IAM User & CLI</a></li>
+      <li><a href="#step2">Step 2: VPC Network</a></li>
+      <li><a href="#step3">Step 3: Deploy Egress NAT</a></li>
+      <li><a href="#step4">Step 4: Generate Certs</a></li>
+      <li><a href="#step5">Step 5: Client VPN Endpoint</a></li>
+      <li><a href="#step6">Step 6: Configure Client</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main>
+    <header>
+      <h1>AWS Client VPN Manual Walkthrough</h1>
+      <p class="lead">A step-by-step guide to manually setting up a full-tunnel AWS Client VPN in a new VPC with internet access. Use this guide to study the underlying AWS infrastructure concepts.</p>
+    </header>
+
+    <!-- Architecture Overview -->
+    <section id="overview">
+      <h2>Architecture Overview</h2>
+      <div class="diagram-container">
+        <div class="mermaid">
+          graph TD
+              subgraph Local Machine
+                  Client[OpenVPN Client]
+              end
+
+              subgraph AWS Cloud [VPC: 10.0.0.0/16]
+                  subgraph Private Subnet [10.0.2.0/24]
+                      VPNEndpoint[Client VPN Endpoint]
+                  end
+                  
+                  subgraph Public Subnet [10.0.1.0/24]
+                      NATInst[EC2 NAT Instance]
+                  end
+                  
+                  IGW[Internet Gateway]
+              end
+
+              Client -- encrypted tunnel --> VPNEndpoint
+              VPNEndpoint -- routes 0.0.0.0/0 --> NATInst
+              NATInst -- masquerades traffic --> IGW
+              IGW -- egresses to --> Internet((Internet))
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 1 -->
+    <section id="step1" class="step-card">
+      <h2>Step 1: Set Up IAM User, Group, and CLI Credentials</h2>
+      <p>Before deploying resources, you must create a dedicated administrator user in IAM and configure your local machine to authenticate with AWS.</p>
+      
+      <h3>1. Create the Administrators User Group</h3>
+      <ul>
+        <li>Log in to the <strong>AWS Management Console</strong> as the root user.</li>
+        <li>Search for and select <strong>IAM</strong> (Identity and Access Management).</li>
+        <li>In the left sidebar, click <strong>User groups</strong> and click <strong>Create group</strong>.</li>
+        <li><strong>Group name:</strong> <code>Administrators</code></li>
+        <li>Under <strong>Attach permissions policies</strong>, search for and check the box next to <strong><code>AdministratorAccess</code></strong>.</li>
+        <li>Click <strong>Create group</strong>.</li>
+      </ul>
+
+      <h3>2. Create the IAM User</h3>
+      <ul>
+        <li>In the left sidebar, click <strong>Users</strong> and click <strong>Create user</strong>.</li>
+        <li><strong>User name:</strong> <code>vpn-deployer</code></li>
+        <li>Check <strong>Provide user access to the AWS Management Console - optional</strong>.</li>
+        <li>Select <strong>I want to create an IAM user</strong>.</li>
+        <li>Select <strong>Autogenerated password</strong> and keep <strong>Users must create a new password at next sign-in</strong> checked.</li>
+        <li>Click <strong>Next</strong>.</li>
+        <li>Under <strong>Permissions options</strong>, select <strong>Add user to group</strong> and select the <code>Administrators</code> group you created.</li>
+        <li>Click <strong>Next</strong>, then <strong>Create user</strong>.</li>
+        <li><strong>CRITICAL:</strong> Copy the <strong>Console sign-in URL</strong>, the <strong>User name</strong>, and the <strong>Password</strong> (or click <em>Download .csv file</em>).</li>
+      </ul>
+
+      <h3>3. Enable Multi-Factor Authentication (MFA)</h3>
+      <ul>
+        <li>Log out of the Root account.</li>
+        <li>Navigate to the <strong>Console sign-in URL</strong> copied above and log in using your new user credentials. You will be prompted to set a new password.</li>
+        <li>Once logged in, click your username in the top right corner and select <strong>Security credentials</strong>.</li>
+        <li>Find <strong>Multi-factor authentication (MFA)</strong> and click <strong>Assign MFA device</strong>.</li>
+        <li>Follow the prompts to register an authenticator app (like Google Authenticator or Authy) on your phone.</li>
+      </ul>
+
+      <h3>4. Generate Access Keys for the CLI</h3>
+      <ul>
+        <li>Still in your user's <strong>Security credentials</strong> tab, scroll down to the <strong>Access keys</strong> section and click <strong>Create access key</strong>.</li>
+        <li>Choose the <strong>Command Line Interface (CLI)</strong> option.</li>
+        <li>Check the confirmation box at the bottom and click <strong>Next</strong>.</li>
+        <li>Enter a description tag (e.g., <code>cli-deployment-key</code>) and click <strong>Create access key</strong>.</li>
+        <li><strong>CRITICAL:</strong> Download the <code>.csv</code> file containing the <strong>Access Key ID</strong> and <strong>Secret Access Key</strong>. You will not be able to retrieve these keys again once you leave this screen.</li>
+      </ul>
+
+      <h3>5. Configure AWS CLI on Your Machine</h3>
+      <p>Open your terminal and run the configuration tool:</p>
+      <pre><code>aws configure</code></pre>
+      <p>Enter the values when prompted:</p>
+      <ul>
+        <li><strong>AWS Access Key ID:</strong> Enter your copied <code>Access Key ID</code></li>
+        <li><strong>AWS Secret Access Key:</strong> Enter your copied <code>Secret Access Key</code></li>
+        <li><strong>Default region name:</strong> <code>us-east-1</code> (or your preferred region)</li>
+        <li><strong>Default output format:</strong> <code>json</code></li>
+      </ul>
+    </section>
+
+    <!-- Step 2 -->
+    <section id="step2" class="step-card">
+      <h2>Step 2: Create the VPC Network Infrastructure</h2>
+      <p>To isolate the VPN and keep costs separate, we build a new VPC with a public and private subnet.</p>
+      
+      <h3>1. Create the VPC</h3>
+      <ul>
+        <li>In the AWS Console, search for and select <strong>VPC</strong>.</li>
+        <li>Click <strong>Your VPCs</strong> in the left sidebar and click <strong>Create VPC</strong>.</li>
+        <li>Choose <strong>VPC only</strong>.</li>
+        <li><strong>Name tag:</strong> <code>aws-vpn-vpc</code></li>
+        <li><strong>IPv4 CIDR block:</strong> <code>10.0.0.0/16</code></li>
+        <li>Click <strong>Create VPC</strong>.</li>
+        <li>Select the VPC, go to <strong>Actions</strong> -> <strong>Edit VPC settings</strong>, enable <strong>Enable DNS hostnames</strong> and <strong>Enable DNS support</strong>, then click <strong>Save</strong>.</li>
+      </ul>
+
+      <h3>2. Create the Subnets</h3>
+      <ul>
+        <li>Go to <strong>Subnets</strong> in the left sidebar and click <strong>Create subnet</strong>.</li>
+        <li>Select the VPC you just created.</li>
+        <li><strong>Subnet 1 (Public):</strong>
+          <ul>
+            <li><strong>Subnet name:</strong> <code>aws-vpn-public-subnet</code></li>
+            <li><strong>Availability Zone:</strong> Select the first zone (e.g., <code>us-east-1a</code>).</li>
+            <li><strong>IPv4 CIDR block:</strong> <code>10.0.1.0/24</code></li>
+          </ul>
+        </li>
+        <li>Click <strong>Add new subnet</strong>.</li>
+        <li><strong>Subnet 2 (Private):</strong>
+          <ul>
+            <li><strong>Subnet name:</strong> <code>aws-vpn-private-subnet</code></li>
+            <li><strong>Availability Zone:</strong> Select the same zone (e.g., <code>us-east-1a</code>).</li>
+            <li><strong>IPv4 CIDR block:</strong> <code>10.0.2.0/24</code></li>
+          </ul>
+        </li>
+        <li>Click <strong>Create subnet</strong>.</li>
+        <li>Select the public subnet, click <strong>Actions</strong> -> <strong>Edit subnet settings</strong>, check <strong>Enable auto-assign public IPv4 address</strong>, and click <strong>Save</strong>.</li>
+      </ul>
+
+      <h3>3. Create and Attach the Internet Gateway (IGW)</h3>
+      <ul>
+        <li>Go to <strong>Internet Gateways</strong> and click <strong>Create internet gateway</strong>.</li>
+        <li><strong>Name tag:</strong> <code>aws-vpn-igw</code></li>
+        <li>Click <strong>Create internet gateway</strong>.</li>
+        <li>Click <strong>Actions</strong> -> <strong>Attach to VPC</strong>, select <code>aws-vpn-vpc</code>, and click **Attach internet gateway**.</li>
+      </ul>
+
+      <h3>4. Configure Route Tables</h3>
+      <ul>
+        <li>Go to <strong>Route Tables</strong> and click <strong>Create route table</strong>.</li>
+        <li><strong>Name tag:</strong> <code>aws-vpn-public-rt</code></li>
+        <li>Select your VPC and click <strong>Create route table</strong>.</li>
+        <li>Select the public route table, go to the <strong>Routes</strong> tab, and click <strong>Edit routes</strong>.</li>
+        <li>Click <strong>Add route</strong>, set destination to <code>0.0.0.0/0</code>, choose <strong>Internet Gateway</strong> as target, select <code>aws-vpn-igw</code>, and click <strong>Save changes</strong>.</li>
+        <li>Go to the <strong>Subnet associations</strong> tab, click <strong>Edit subnet associations</strong>, select the public subnet, and click <strong>Save association</strong>.</li>
+      </ul>
+    </section>
+
+    <!-- Step 3 -->
+    <section id="step3" class="step-card">
+      <h2>Step 3: Deploy and Configure the Egress NAT Device</h2>
+      <p>Since the Client VPN Endpoint associates with the private subnet, client traffic destined for the internet must route through a NAT device in the public subnet.</p>
+      
+      <h3>Option A: Cost-Saving NAT Instance (Recommended for personal labs)</h3>
+      <p>Instead of AWS Managed NAT Gateway, we launch a tiny EC2 instance (<code>t3.nano</code> or <code>t3.micro</code>) configured to masquerade traffic.</p>
+      
+      <h3>1. Create the NAT Instance Security Group</h3>
+      <ul>
+        <li>Go to the <strong>EC2 Console</strong> -> <strong>Security Groups</strong> -> <strong>Create security group</strong>.</li>
+        <li><strong>Name:</strong> <code>aws-vpn-nat-sg</code></li>
+        <li><strong>VPC:</strong> Select <code>aws-vpn-vpc</code>.</li>
+        <li>Add <strong>Inbound rules</strong>:
+          <ul>
+            <li><strong>Type:</strong> All Traffic, <strong>Source:</strong> Custom -> <code>10.0.0.0/16</code> (VPC CIDR)</li>
+            <li><strong>Type:</strong> All Traffic, <strong>Source:</strong> Custom -> <code>172.16.0.0/22</code> (VPN client CIDR)</li>
+          </ul>
+        </li>
+        <li>Add <strong>Outbound rules</strong>:
+          <ul>
+            <li><strong>Type:</strong> All Traffic, <strong>Destination:</strong> Anywhere (<code>0.0.0.0/0</code>)</li>
+          </ul>
+        </li>
+        <li>Click <strong>Create security group</strong>.</li>
+      </ul>
+
+      <h3>2. Launch the NAT Instance</h3>
+      <ul>
+        <li>Go to <strong>EC2 Console</strong> -> <strong>Instances</strong> -> <strong>Launch instances</strong>.</li>
+        <li><strong>Name:</strong> <code>aws-vpn-nat-instance</code></li>
+        <li><strong>AMI:</strong> Amazon Linux 2023 AMI (64-bit x86_64).</li>
+        <li><strong>Instance type:</strong> <code>t3.nano</code> or <code>t3.micro</code>.</li>
+        <li><strong>Key pair:</strong> Proceed without a key pair.</li>
+        <li><strong>Network settings:</strong>
+          <ul>
+            <li>VPC: <code>aws-vpn-vpc</code></li>
+            <li>Subnet: <code>aws-vpn-public-subnet</code> (Public subnet)</li>
+            <li>Firewall: Select existing security group -> <code>aws-vpn-nat-sg</code>.</li>
+          </ul>
+        </li>
+        <li><strong>Advanced details</strong> -> <strong>User data</strong>:<br>
+          Paste this bash script to enable packet forwarding and configure IP masquerading:
+          <pre><code>#!/bin/bash
+sysctl -w net.ipv4.ip_forward=1
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+dnf install -y iptables-services
+systemctl enable iptables --now
+
+# Flush default forwarding rules which block routing
+iptables -F FORWARD
+iptables -P FORWARD ACCEPT
+
+INTERFACE=$(ip route | grep default | awk '{print $5}')
+iptables -t nat -A POSTROUTING -o $INTERFACE -j MASQUERADE
+service iptables save</code></pre>
+        </li>
+        <li>Click <strong>Launch instance</strong>.</li>
+      </ul>
+
+      <div class="alert alert-important">
+        <h4>CRITICAL: Disable Source/Destination Checking</h4>
+        <p>Once launched, select the instance in the EC2 Console. Click <strong>Actions</strong> -> <strong>Networking</strong> -> <strong>Change source/destination check</strong>. Check <strong>Stop</strong> (Disabled) and click <strong>Save</strong>.</p>
+        <p><em>If you forget this step, AWS will drop routing traffic passing through this instance, and your VPN client will have no internet access.</em></p>
+      </div>
+
+      <h3>3. Allocate and Associate an Elastic IP (EIP)</h3>
+      <ul>
+        <li>Go to <strong>Network & Security</strong> -> <strong>Elastic IPs</strong> -> <strong>Allocate Elastic IP address</strong>.</li>
+        <li>Click <strong>Allocate</strong>.</li>
+        <li>Select the EIP, click <strong>Actions</strong> -> <strong>Associate Elastic IP address</strong>.</li>
+        <li>Choose <strong>Instance</strong>, select <code>aws-vpn-nat-instance</code>, and click <strong>Associate</strong>.</li>
+      </ul>
+
+      <h3>4. Update Private Subnet Routing</h3>
+      <ul>
+        <li>Create a new route table called <code>aws-vpn-private-rt</code> in your VPC.</li>
+        <li>Go to <strong>Routes</strong> -> <strong>Edit routes</strong> -> <strong>Add route</strong>.</li>
+        <li>Destination: <code>0.0.0.0/0</code>.</li>
+        <li>Target: Select <strong>Network Interface</strong> and choose the primary interface of <code>aws-vpn-nat-instance</code>.</li>
+        <li>Click <strong>Save changes</strong>.</li>
+        <li>Associate this route table with <code>aws-vpn-private-subnet</code>.</li>
+      </ul>
+    </section>
+
+    <!-- Step 4 -->
+    <section id="step4" class="step-card">
+      <h2>Step 4: Generate and Import Certificates</h2>
+      <p>Mutual authentication requires creating server and client certificates using OpenSSL.</p>
+      
+      <h3>1. Generate Certificates locally in terminal</h3>
+      <pre><code># Create a working directory
+mkdir -p vpn-certs && cd vpn-certs
+
+# Generate CA (Certificate Authority)
+openssl genrsa -out ca.key 2048
+openssl req -new -x509 -days 3650 -key ca.key -out ca.crt -subj "/CN=AWS-Client-VPN-CA"
+
+# Generate Server Cert
+openssl genrsa -out server.key 2048
+openssl req -new -key server.key -out server.csr -subj "/CN=vpn-server.local"
+openssl x509 -req -days 365 -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt
+
+# Generate Client Cert
+openssl genrsa -out client.key 2048
+openssl req -new -key client.key -out client.csr -subj "/CN=client1.domain.tld"
+openssl x509 -req -days 365 -in client.csr -CA ca.crt -CAkey ca.key -CAserial ca.srl -out client.crt</code></pre>
+
+      <h3>2. Upload Certificates to AWS Certificate Manager (ACM)</h3>
+      <ul>
+        <li>Open the <strong>AWS Certificate Manager Console</strong>.</li>
+        <li>Click <strong>Import a certificate</strong>.</li>
+        <li><strong>For the Server Certificate:</strong>
+          <ul>
+            <li>Certificate body: Paste the contents of <code>server.crt</code>.</li>
+            <li>Certificate private key: Paste the contents of <code>server.key</code>.</li>
+            <li>Certificate chain: Paste the contents of <code>ca.crt</code>.</li>
+            <li>Click <strong>Next</strong>, add tags, and click <strong>Import</strong>. Note the ARN.</li>
+          </ul>
+        </li>
+        <li>Repeat the import process for the <strong>Client Certificate</strong> (using <code>client.crt</code> and <code>client.key</code>), and note the ARN.</li>
+      </ul>
+    </section>
+
+    <!-- Step 5 -->
+    <section id="step5" class="step-card">
+      <h2>Step 5: Create the Client VPN Endpoint</h2>
+      
+      <h3>1. Create the Endpoint</h3>
+      <ul>
+        <li>Go to the <strong>VPC Console</strong> -> **Client VPN Endpoints** -> **Create client VPN endpoint**.</li>
+        <li><strong>Name tag:</strong> <code>aws-vpn-endpoint</code></li>
+        <li><strong>Client IPv4 CIDR:</strong> <code>172.16.0.0/22</code></li>
+        <li><strong>Server certificate ARN:</strong> Select the server certificate imported in ACM.</li>
+        <li><strong>Authentication options:</strong> Check <strong>Use mutual authentication</strong>, then select the client certificate imported in ACM.</li>
+        <li><strong>Connection logging:</strong> Select <strong>No</strong> (Disabled).</li>
+        <li><strong>DNS servers:</strong> Check <strong>Specify DNS servers</strong> and enter <code>1.1.1.1</code> and <code>8.8.8.8</code>.</li>
+        <li><strong>Split-tunnel:</strong> Leave <strong>Unchecked</strong> (Disabled). This enforces a Full-Tunnel VPN routing all client internet traffic through AWS.</li>
+        <li>Click <strong>Create client VPN endpoint</strong>.</li>
+      </ul>
+
+      <h3>2. Associate with Private Subnet</h3>
+      <ul>
+        <li>Select your new VPN Endpoint and go to the <strong>Target network associations</strong> tab.</li>
+        <li>Click <strong>Associate target network</strong>.</li>
+        <li>Select your VPC and choose <code>aws-vpn-private-subnet</code>.</li>
+        <li>Click <strong>Associate target network</strong>. (This takes 2-3 minutes).</li>
+      </ul>
+
+      <h3>3. Add Route for Internet Access</h3>
+      <ul>
+        <li>Go to the <strong>Route table</strong> tab of the VPN endpoint.</li>
+        <li>Click <strong>Create Route</strong>.</li>
+        <li><strong>Route destination CIDR:</strong> <code>0.0.0.0/0</code></li>
+        <li><strong>Target VPC Subnet IPv4 CIDR:</strong> Select your private subnet.</li>
+        <li>Click <strong>Create Route</strong>.</li>
+      </ul>
+
+      <h3>4. Add Authorization Rules</h3>
+      <ul>
+        <li>Go to the <strong>Authorization rules</strong> tab of the VPN endpoint.</li>
+        <li>Click <strong>Authorize ingress</strong>.</li>
+        <li><strong>Destination network to enable access:</strong> <code>0.0.0.0/0</code> (Allows clients to reach the internet).</li>
+        <li><strong>Allow access to:</strong> Allow access to all users.</li>
+        <li>Click <strong>Authorize ingress</strong>.</li>
+        <li>Click <strong>Authorize ingress</strong> again.</li>
+        <li><strong>Destination network to enable access:</strong> <code>10.0.0.0/16</code> (Allows clients to reach local VPC resources).</li>
+        <li><strong>Allow access to:</strong> Allow access to all users.</li>
+        <li>Click <strong>Authorize ingress</strong>.</li>
+      </ul>
+    </section>
+
+    <!-- Step 6 -->
+    <section id="step6" class="step-card">
+      <h2>Step 6: Configure the Client Connection</h2>
+      
+      <h3>1. Download Configuration</h3>
+      <ul>
+        <li>In the Client VPN Endpoints console, select your endpoint.</li>
+        <li>Click <strong>Download client configuration</strong>. This downloads a <code>.ovpn</code> file.</li>
+      </ul>
+
+      <h3>2. Prepare the Client .ovpn Profile</h3>
+      <ul>
+        <li>Open the <code>.ovpn</code> file in a text editor.</li>
+        <li>Look for the line starting with <code>remote</code>. It will look similar to:<br>
+          <code>remote cvpn-endpoint-xxxxxx.prod.clientvpn.us-east-1.amazonaws.com 443</code>
+        </li>
+        <li>Prepend a random string to the DNS name (e.g. <code>remote random.cvpn-endpoint-xxxxxx.prod...</code>) to bypass DNS caching:<br>
+          <code>remote randomstring.cvpn-endpoint-xxxxxx.prod.clientvpn.us-east-1.amazonaws.com 443</code>
+        </li>
+        <li>At the bottom of the file, append the client certificate and private key inside <code>&lt;cert&gt;</code> and <code>&lt;key&gt;</code> tags:
+          <pre><code>&lt;cert&gt;
+-----BEGIN CERTIFICATE-----
+[Paste contents of client.crt here]
+-----END CERTIFICATE-----
+&lt;/cert&gt;
+&lt;key&gt;
+-----BEGIN PRIVATE KEY-----
+[Paste contents of client.key here]
+-----END PRIVATE KEY-----
+&lt;/key&gt;</code></pre>
+        </li>
+        <li>Save the file as <code>client.ovpn</code>.</li>
+      </ul>
+
+      <h3>3. Connect to the VPN</h3>
+      <ul>
+        <li>Import <code>client.ovpn</code> into an OpenVPN client (e.g., Tunnelblick on macOS, OpenVPN Connect, or network manager on Linux).</li>
+        <li>Click <strong>Connect</strong>.</li>
+        <li>Once connected, verify your new public IP and location by running:
+          <pre><code>curl ipinfo.io</code></pre>
+          The output should display the public Elastic IP of your NAT instance/gateway and a location in the United States!
+        </li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>AWS Client VPN Manual Walkthrough &copy; 2026. Provisioned with Terraform.</p>
+    </footer>
+  </main>
+
+  <!-- JavaScript for copying code snippets -->
+  <script>
+    document.querySelectorAll('pre').forEach(block => {
+      // Create copy button
+      const button = document.createElement('button');
+      button.className = 'copy-btn';
+      button.innerText = 'Copy';
+      
+      block.appendChild(button);
+
+      button.addEventListener('click', () => {
+        const code = block.querySelector('code');
+        navigator.clipboard.writeText(code.innerText).then(() => {
+          button.innerText = 'Copied!';
+          setTimeout(() => {
+            button.innerText = 'Copy';
+          }, 2000);
+        }).catch(err => {
+          console.error('Error copying text: ', err);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
